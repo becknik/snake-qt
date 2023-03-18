@@ -40,4 +40,6 @@ cmake --build ./snake-qt/build --target snake -j 8
 
 ./snake-qt/build/snake
 ```
-![Preview Picture - What a beauty!](.preview/Screenshot%20from%202023-03-19%2000-10-59.png)
+### Preview
+
+![Preview Picture - What a beauty!|400](.preview/Screenshot%20from%202023-03-19%2000-10-59.png)
