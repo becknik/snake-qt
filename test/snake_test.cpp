@@ -3,12 +3,11 @@
 #define BOOST_TEST_MODULE Snake Test
 #include <boost/test/unit_test.hpp>
 
-#include <fmt/ranges.h>
 
 struct DefaultSnake
 {
-	std::pair<Snake::Point, Snake::Point> imaginaryMap{{ 0, 0 }, { 10, 10 }};
-	Snake snake{ imaginaryMap, Direction::NORTH, 3 };
+	Snake::Point imaginaryMap{ 10, 10 };
+	Snake snake{ imaginaryMap, Snake::Direction::NORTH, 3 };
 	auto setup() -> void
 	{
 		BOOST_TEST_MESSAGE("> Constructing Default Snake");
@@ -21,8 +20,8 @@ struct DefaultSnake
 
 struct LongSnake
 {
-	std::pair<Snake::Point, Snake::Point> imaginaryMap{{ 0, 0 }, { 10, 10 }};
-	Snake snake{ imaginaryMap, Direction::NORTH, 6 };
+	Snake::Point imaginaryMap{ 10, 10 };
+	Snake snake{ imaginaryMap, Snake::Direction::NORTH, 6 };
 	auto setup() -> void
 	{
 		BOOST_TEST_MESSAGE("> Constructing Long Snake");
@@ -35,8 +34,8 @@ struct LongSnake
 
 struct ExtremeSnake1
 {
-	std::pair<Snake::Point, Snake::Point> imaginaryMap{{ 0, 0 }, { 10, 10 }};
-	Snake snake{ imaginaryMap, { 0, 0 }, Direction::EAST, 10 };
+	Snake::Point imaginaryMap { 10, 10 };
+	Snake snake{ imaginaryMap, { 0, 0 }, Snake::Direction::EAST, 10 };
 	auto setup() -> void
 	{
 		BOOST_TEST_MESSAGE("> Constructing Extreme Snake");
@@ -51,7 +50,7 @@ BOOST_AUTO_TEST_SUITE(main_test_suite);
 
 	BOOST_FIXTURE_TEST_CASE(moving_and_turning_test, DefaultSnake)
 	{
-		std::vector<Snake::Point> referenceBody{{ 5, 5 }, { 5, 6 }, { 5, 7 }};
+		std::deque<Snake::Point> referenceBody{{ 5, 5 }, { 5, 6 }, { 5, 7 }};
 		BOOST_TEST(referenceBody == snake.getBody());
 
 		// Moving snake to border
@@ -95,7 +94,7 @@ BOOST_AUTO_TEST_SUITE(main_test_suite);
 
 	BOOST_FIXTURE_TEST_CASE(moving_and_turning_test2, DefaultSnake)
 	{
-		std::vector<Snake::Point> referenceBody{{ 5, 5 }, { 5, 6 }, { 5, 7 }};
+		std::deque<Snake::Point> referenceBody{{ 5, 5 }, { 5, 6 }, { 5, 7 }};
 		BOOST_TEST(referenceBody == snake.getBody());
 		fmt::print("{} - Initial snake \n", snake.getBody());
 
@@ -143,7 +142,7 @@ BOOST_AUTO_TEST_SUITE(main_test_suite);
 		snake.move({ 5, 3 });
 		snake.move({ 5, 2 });
 
-		std::vector<Snake::Point> referenceBody{{ 5, 2 }, { 5, 3 }, { 5, 4 }, { 5, 5 }, { 5, 6 }, { 5, 7 }};
+		std::deque<Snake::Point> referenceBody{{ 5, 2 }, { 5, 3 }, { 5, 4 }, { 5, 5 }, { 5, 6 }, { 5, 7 }};
 		BOOST_TEST(referenceBody == snake.getBody());
 
 		// Snack spawn in snakes head before moving
@@ -186,7 +185,7 @@ BOOST_AUTO_TEST_SUITE(main_test_suite);
 
 	BOOST_FIXTURE_TEST_CASE(extreme_snake_test, ExtremeSnake1)
 	{
-		std::vector<Snake::Point> referenceBody{{ 0, 0 }, { 10, 0 }, { 9, 0 }, { 8, 0 }, { 7, 0 }, { 6, 0 }, { 5, 0 },
+		std::deque<Snake::Point> referenceBody{{ 0, 0 }, { 10, 0 }, { 9, 0 }, { 8, 0 }, { 7, 0 }, { 6, 0 }, { 5, 0 },
 		                                        { 4, 0 }, { 3, 0 }, { 2, 0 }};
 		fmt::print("{}\n", snake.getBody());
 		BOOST_TEST(referenceBody == snake.getBody());

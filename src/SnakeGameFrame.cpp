@@ -5,85 +5,80 @@
 #include <QtCore/QCoreApplication>
 #include <spdlog/sinks/stdout_color_sinks.h>
 
-#include <iostream>
+#include <chrono>
 
-std::shared_ptr<spdlog::logger> const SnakeGameFrame::m_consoleLogger{ spdlog::stderr_color_mt("Game Field") };
-std::mt19937 SnakeGameFrame::m_snackMt{ std::random_device{}() };
+std::shared_ptr<spdlog::logger> const SnakeGameFrame::mConsoleLogger{ spdlog::stderr_color_mt("Game Field") };
 
 SnakeGameFrame::SnakeGameFrame(QWidget* parent, QStatusBar* statusBar, const Snake::Point gameFrameSize)
-	: QFrame(parent), m_statusBar(statusBar), m_painter(this),
-	  m_snackDistribution(std::uniform_int_distribution{ 0, gameFrameSize.first },
+	: QFrame(parent), mGameStatusBar(statusBar), mPainter(this), mSnakeMoveTimer(new QTimer(this)),
+	  mSnackDistribution(
+		  std::uniform_int_distribution{ 0, gameFrameSize.first },
 		  std::uniform_int_distribution{ 0, gameFrameSize.second }),
-	  m_gameFrameSize(gameFrameSize), m_snakeMoveTimer(new QTimer(this)),
-	  m_snake({ std::pair(0, 0), gameFrameSize }),
-	  m_gameIsRunning(false)
+	  mSnake(gameFrameSize), mGameFrameSize(gameFrameSize), mIsGameRunning(false)
 {
 	// Setting the dimension of the game frame
-	QSize qFrameSize{ calculateGameFrameSize(gameFrameSize) };
+	QSize qFrameSize{ SnakeGameFrame::calculateGameFrameSize(gameFrameSize) };
+	mGameQFrameSize = qFrameSize;
 	this->setGeometry(0, 0, qFrameSize.width(), qFrameSize.height());
 
 	// TODO remove some stuff here
 	this->setFixedSize(qFrameSize.width(), qFrameSize.height());
-	this->setFrameStyle(QFrame::Box | QFrame::Plain);
+	//this->setFrameStyle(QFrame::Box | QFrame::Plain);
 	this->setFocusPolicy(Qt::FocusPolicy::StrongFocus);
 
+	mPainter.setRenderHint(QPainter::Antialiasing);
+
 	// Connecting the timer with the snake moving/game logic
-	connect(m_snakeMoveTimer.get(), &QTimer::timeout, this, &SnakeGameFrame::snakeOverlord);
-
-/*
-	QKeyEvent* event1{ new QEvent::Type::KeyPress, Qt::Key::Key_W, Qt::KeyboardModifier::NoModifier};
-	connect(event1, &QKeyEvent::accept, this, &SnakeGameFrame::show);
-
-	QCoreApplication::postEvent(this, new QKeyEvent{QEvent::Type::KeyPress, Qt::Key::Key_D, Qt::KeyboardModifier::NoModifier});
-	QCoreApplication::postEvent(this, new QKeyEvent{QEvent::Type::KeyPress, Qt::Key::Key_S, Qt::KeyboardModifier::NoModifier});
-	QCoreApplication::postEvent(this, new QKeyEvent{QEvent::Type::KeyPress, Qt::Key::Key_A, Qt::KeyboardModifier::NoModifier});
-*/
-
-	this->update();
+	connect(mSnakeMoveTimer.get(), &QTimer::timeout, this, &SnakeGameFrame::snakeCoordinator);
+	// Initially execute draw event
+	//this->update(); // Seems to be done implicitly by the main windows in the main method
 }
 
 auto SnakeGameFrame::startGame() -> void
 {
-	// TODO implement start button or sth
-
-	m_consoleLogger->info("Staring game.");
-	m_gameIsRunning = true;
+	mConsoleLogger->info("Staring game.");
+	mIsGameRunning = true;
 
 	this->generateNewSnack();
 
 	// Initially paint snake on the frame by calling the overwritten paintEvent method
 	update();
 	// Setting status bar message
-	std::string statusBarMessage {fmt::format("Length: {:d}, Level: {:d} / Snake Update Speed: {:d}ms", m_snake.getLength(), m_snake.getLevel(), SnakeGameFrame::getSnakeMovementIntervall())};
-	m_statusBar->showMessage(QString{statusBarMessage.c_str()});
+	std::string statusBarMessage{
+		fmt::format("Length: {:d}, Level: {:d} / {:d}ms", mSnake.getLength(), mSnake
+			.getLevel(), SnakeGameFrame::getSnakeMovementIntervall()) };
+	mGameStatusBar->showMessage(QString{ statusBarMessage.c_str() });
 
-	m_snakeMoveTimer->start(SnakeGameFrame::getSnakeMovementIntervall());
+	mSnakeMoveTimer->start(SnakeGameFrame::getSnakeMovementIntervall());
 }
 
 auto SnakeGameFrame::getSnakeMovementIntervall() -> std::int32_t
 {
-	const double buffer{ (static_cast<double>(1) / m_snake.getSpeed()) * 1'000 };
+	const double buffer{ (static_cast<double>(1) / mSnake.getSpeed()) * 1'000 };
 	return static_cast<int>(buffer);
 }
 
-auto SnakeGameFrame::snakeOverlord() -> void
+auto SnakeGameFrame::snakeCoordinator() -> void
 {
-	bool ateSnack = m_snake.move(m_snack);
-	if (ateSnack) {
+	bool ateSnack = mSnake.move(mSnack);
+	if (ateSnack)
+	{
 		this->generateNewSnack();
-		m_snakeMoveTimer->setInterval(getSnakeMovementIntervall());
+		mSnakeMoveTimer->setInterval(getSnakeMovementIntervall());
 
 		// Updating status bar message
-		std::string statusBarMessage {fmt::format("Length: {:d}, Level: {:d} / {:d}ms", m_snake.getLength(), m_snake.getLevel(), SnakeGameFrame::getSnakeMovementIntervall())};
-		m_statusBar->showMessage(QString{statusBarMessage.c_str()});
+		std::string statusBarMessage{ fmt::format("Length: {:d}, Level: {:d} / {:d}ms", mSnake.getLength(), mSnake
+			.getLevel(), SnakeGameFrame::getSnakeMovementIntervall()) };
+		mGameStatusBar->showMessage(QString{ statusBarMessage.c_str() });
 	}
-	if (m_snake.isEatingItself()) {
-		m_snakeMoveTimer->stop();
+	if (mSnake.isEatingItself())
+	{
+		mSnakeMoveTimer->stop();
 
-		m_gameIsRunning = false;
+		mIsGameRunning = false;
 		this->update();
 
-		m_statusBar->showMessage("");
+		mGameStatusBar->showMessage("");
 	}
 
 	this->update();
@@ -91,97 +86,131 @@ auto SnakeGameFrame::snakeOverlord() -> void
 
 auto SnakeGameFrame::paintEvent(QPaintEvent*) -> void
 {
-
-/* Debugging
+/* Debugging:
 	painter.setPen(Qt::GlobalColor::cyan);
 	painter.drawRect(SnakeGameFrame::transformPointToDisplayTile({ 0, 0 }));
 	painter.drawRect(SnakeGameFrame::transformPointToDisplayTile(m_gameFieldSize));
 */
-	m_painter.begin(this);
-	if (m_gameIsRunning) {
-		// Painting snakes body
-		const std::vector<Snake::Point> snakesBody{ m_snake.getBody() };
-		// Painting snakes head to make sure it is drawn over the body when eating itself
-		m_painter.setPen(Qt::GlobalColor::blue);
-		m_painter.drawRect(SnakeGameFrame::transformPointToDisplayTile(m_snack));
+	mPainter.begin(this); // Painter is now ready
+	// Painting snakes body
+	if (mIsGameRunning)
+	{
+		// Painting snack to make sure it is drawn over the body when eating itself
+		mPainter.setBrush(Qt::GlobalColor::green);
+		mPainter.setPen(Qt::GlobalColor::green);
+		mPainter.drawRect(SnakeGameFrame::transformPointToDisplayTile(mSnack));
 
-		m_painter.setPen(Qt::GlobalColor::green);
+		mPainter.setPen(Qt::GlobalColor::black);
+		mPainter.setBrush(Qt::GlobalColor::black);
 		// Draw the snakes body
-		std::for_each(snakesBody.begin() + 1, snakesBody.end(), [this](auto snakeBodyPoint)
+		auto& snakesBody{ mSnake.getBody() };
+		std::for_each(snakesBody.begin() + 1, snakesBody.end(), [this](auto& snakeBodyPoint)
 		{
-		  QRect snakeBodyRect{ SnakeGameFrame::transformPointToDisplayTile(snakeBodyPoint) };
-		  m_painter.drawRect(snakeBodyRect);
+		  const QRect snakeBodyRect{ SnakeGameFrame::transformPointToDisplayTile(snakeBodyPoint) };
+		  mPainter.drawRect(snakeBodyRect);
 		});
 
 		// Draw the snakes head
-		m_painter.setPen(Qt::GlobalColor::red);
-		m_painter.drawRect(SnakeGameFrame::transformPointToDisplayTile(snakesBody.front()));
-	} else {
-		m_painter.setFont(QFont("Arial", 20));
-		m_painter.drawText(0,100,"Please press Space to start");
+		mPainter.setBrush(Qt::GlobalColor::red);
+		mPainter.setPen(Qt::GlobalColor::red);
+		mPainter.drawRect(SnakeGameFrame::transformPointToDisplayTile(snakesBody.front()));
+
+		// Draw game border
+		mPainter.setBrush(Qt::NoBrush);
+		mPainter.setPen(Qt::GlobalColor::yellow);
+		mPainter.drawRect(0, 0, mGameQFrameSize.width() - 1, mGameQFrameSize.height() - 1); // Idk...
 	}
-	m_painter.end();
+	else
+	{ // The start game screen is shown
+		const auto& [x, y] = mGameQFrameSize;
+		const QRect titleRect{ 0, static_cast<int>(0.1 * y), x, static_cast<int>(0.9 * y) };
+
+		mPainter.setFont(QFont("Arial", 16));
+		mPainter.drawText(titleRect, Qt::AlignHCenter, "Please press Space to start!");
+		//mPainter.setFont(QFont("Arial", 12)); TODO
+		//mPainter.drawText(titleRect, Qt::AlignCenter, "High Scores:\n");
+	}
+	mPainter.end();
 }
 
 auto SnakeGameFrame::calculateGameFrameSize(const Snake::Point& frameSize) -> QSize
 {
 	// "+2" for displaying the first & last margin gap for the outer rectangle margins
-	const int width{ (frameSize.first + 1) * m_tile_dimension.width() + (frameSize.first - 1) * m_tile_margin + 2 };
-	const int length{ (frameSize.second + 1) * m_tile_dimension.height() + (frameSize.second - 1) * m_tile_margin + 2 };
+	const int width{ (frameSize.first + 1) * mTileDimension.width() + (frameSize.first - 1) * mTileMargin + 2 };
+	const int length{ (frameSize.second + 1) * mTileDimension.height() + (frameSize.second - 1) * mTileMargin + 2 };
+
+	mConsoleLogger->info("Setting window dimension to x={}, y={}", width, length);
+
 	return { width, length };
 }
 
 auto SnakeGameFrame::generateNewSnack() -> void
 {
-	m_snack.first = m_snackDistribution.first(m_snackMt);
-	m_snack.second = m_snackDistribution.second(m_snackMt);
-	m_consoleLogger->info("Generating new snack on ({},{})", m_snack.first, m_snack.second);
+	static std::random_device rd{};
+	static std::seed_seq seedSeq{
+		static_cast<unsigned int> (std::chrono::high_resolution_clock::now().time_since_epoch().count()),
+		rd(), rd(), rd(), rd(), rd(), rd(), rd(), rd() };
+	static std::mt19937 snackMT{ seedSeq }; // TODO use a more performant thing here
+
+	auto& [firstDirstr, secondDistr] = mSnackDistribution;
+	// Prevents the snack from spawning in the snake
+	while (mSnake.isOnSnack(mSnack))
+	{
+		mSnack = { firstDirstr(snackMT), secondDistr(snackMT) };
+	}
+
+	mConsoleLogger->info("Generating new snack on ({},{})", mSnack.first, mSnack.second);
 }
 
 auto SnakeGameFrame::transformPointToDisplayTile(const Snake::Point& gameFieldPoint) -> QRect
 {
 	const QPoint qRectStartingPoint{
 		// To avoid tiles being placed into the negative due to the fact of n-1 gaps between n rows, the std::max is used
-		gameFieldPoint.first * m_tile_dimension.width() + (std::max(gameFieldPoint.first - 1, 0)) * m_tile_margin + 1,
-		gameFieldPoint.second * m_tile_dimension.height() + (std::max(gameFieldPoint.second - 1, 0)) * m_tile_margin + 1
+		gameFieldPoint.first * mTileDimension.width() + (std::max(gameFieldPoint.first - 1, 0)) * mTileMargin + 1,
+		gameFieldPoint.second * mTileDimension.height() + (std::max(gameFieldPoint.second - 1, 0)) * mTileMargin + 1
 	};
-	return { qRectStartingPoint, m_tile_dimension };
+	return { qRectStartingPoint, mTileDimension };
 }
 
 void SnakeGameFrame::keyPressEvent(QKeyEvent* qKeyEvent)
 {
-	//std::cout << qKeyEvent->key() << '\n';
-	switch (qKeyEvent->key())
+	if (mIsGameRunning)
 	{
-	case Qt::Key::Key_W:
-	{
-		m_snake.turn(Direction::NORTH);
-		break;
-	}
-	case Qt::Key::Key_D:
-	{
-		m_snake.turn(Direction::EAST);
-		break;
-	}
-	case Qt::Key::Key_S:
-	{
-		m_snake.turn(Direction::SOUTH);
-		break;
-	}
-	case Qt::Key::Key_A:
-	{
-		m_snake.turn(Direction::WEST);
-		break;
-	}
-	case Qt::Key::Key_Space:
-	{
-		if (!m_gameIsRunning)
+		switch (qKeyEvent->key())
 		{
-			m_snake = Snake{{ std::pair(0, 0), m_gameFrameSize }},
-
+			using
+			enum Snake::Direction;
+		case Qt::Key::Key_W:
+		{
+			mSnake.turn(NORTH);
+			break;
+		}
+		case Qt::Key::Key_D:
+		{
+			mSnake.turn(EAST);
+			break;
+		}
+		case Qt::Key::Key_S:
+		{
+			mSnake.turn(SOUTH);
+			break;
+		}
+		case Qt::Key::Key_A:
+		{
+			mSnake.turn(WEST);
+			break;
+		}
+		}
+	}
+	else
+	{
+		switch (qKeyEvent->key())
+		{
+		case Qt::Key::Key_Space:
+		{
+			mSnake = Snake{ mGameFrameSize };
 			this->startGame();
 		}
-		break;
-	}
+		}
 	}
 }

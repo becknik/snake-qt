@@ -3,50 +3,46 @@
 #include <spdlog/sinks/stdout_color_sinks.h>
 
 #include <deque>
-#include <vector>
 #include <utility>
 #include <cstdint>
-
-enum class Direction
-{
-	NORTH = 0, EAST = 1, SOUTH = 2, WEST = 3
-};
 
 class Snake
 {
  public:
+	enum class Direction
+	{
+		NORTH, EAST, SOUTH, WEST
+	};
 	/// Assuming simple (x,y) tuple
 	using Point = std::pair<std::int32_t, std::int32_t>;
 
  private:
-	static const std::shared_ptr<spdlog::logger> m_consoleLogger;
+	static const std::shared_ptr<spdlog::logger> mConsoleLogger;
 
-	/// ((leftX,topY),(rightX,bottomY)), inclusive
-	std::pair<Point, Point> m_gameFrameDimension;
-	std::deque<Point> m_body;
-	std::int32_t m_length;
-	Direction m_viewDirection;
-	Direction m_tailDirection;
-	/// Speed calculated implicitly by using 1/movementSpeed as timeout intervall
-	double m_movementSpeed;
-	/// Snacks to be eaten to speed up the snake, increases every time a full snack set is eaten
-	std::int32_t m_speedUpCountDown;
-	std::int32_t m_level;
+	std::deque<Point> mBody;
+	/// (rightX,bottomY)), inclusive intervall [leftX,rightX], not exclusive!
+	Point mGameFrameDimension;
+	/// Speed calculated implicitly by using 1/movementSpeed as timeout intervall for snake moving
+	double mCurrentMovementSpeed;
+	/// Snacks to be eaten to speed up the snake, increases every time a full snack set is eaten. See move methods for details
+	std::int32_t mCurrentSpeedUpCountDownStart;
+	std::int32_t mLevel;
+	Direction mViewDirection;
+	/// To disallow the snakes head to "eat itself" by moving in its own body by doing a 180° flip
+	Direction mTailDirection;
 
  public:
-	/// GameFrameDimension is seen as inclusively
-	explicit Snake(const std::pair<Point,Point>& gameFrameDimension,
+	explicit Snake(const Point& gameFrameDimension,
 		const Point& start, Direction direction = Direction::EAST, std::int32_t length = 4, std::int32_t speedUpCountDown = 3);
-	/// GameFrameDimension is seen as inclusively
-	explicit Snake(const std::pair<Point,Point>& gameFrameDimension,
-		Direction direction = Direction::EAST, std::int32_t length = 4);
+	/// Automatically emits the middle of the playfiled & uses this point to spawn the snake
+	explicit Snake(const Point& gameFrameDimension, Direction direction = Direction::EAST, std::int32_t length = 4);
 
 	/**
-	 * Moves the snake by deleting the last body point & adding a new one to the view direction. If isOnSnack() is true the tail is not trimmed
-	 * If a gamefield border is coressed, the values are auomatically adjusted to spawn the new head point to the opposite border
+	 * Moves the snake by deleting the last body point & adding a new one to the view direction. If isOnSnack() is true the tail is not trimmed & the snake grows
+	 * If a game field border is coressed, the values are auomatically adjusted to spawn the new head point to the opposite border.
+	 * If mCurrentSpeedUpCountDownStart snacks were eaten by the snake, the snake levels up resulting in a speed increase. Then the snake resets the level-up countdown to ++mCurrentSpeedUpCountDownStart
 	 *
-	 * @param gameFrameSize The size of the game frame the snake should move in. It differs from the QPoint specification. Formatting: ((leftX,topY),(rightX,bottomY))
-	 * @return true if the snake ate a snack
+	 * @return true if the snake ate a snack, needed for the Qt QFrame TODO
 	 */
 	auto move(const Point& snackPosition) -> bool;
 
@@ -62,17 +58,19 @@ class Snake
 	 * Checks if the snakes head is on the same field like another body point
 	 */
 	auto isEatingItself() -> bool;
-	auto getBody() -> std::vector<Point>;
-	auto getLength() const -> std::int32_t;
+	/// Iterates through the wohle snake body to check if a snack is spawned under it or the snake just ate one
+	auto isOnSnack(const Point& snackPosition) -> bool;
+	auto getBody() -> std::deque<Snake::Point>&;
+	auto getLength() -> std::size_t;
 	auto getSpeed() -> double;
 	auto getLevel() -> std::int32_t;
 
+	/// Reinitialization of a snake when the game (re)starts TODO
 	Snake& operator=(Snake&& snake) noexcept;
 
  private:
-	static constexpr auto getDirectionsRelativeCoords(Direction direction) -> Point;
-	static constexpr auto getOpposite(Direction direction) -> Direction;
-	auto isOnSnack(const Point& snackPosition) -> bool;
+	static auto getDirectionsRelativeCoords(Direction direction) -> Point;
+	static auto getOpposite(Direction direction) -> Direction;
 	/**
 	 * Return the relative position point to a given direction.
 	 * E.g. if NORTH is the argument, the return value is (-1,0) which should be equals
@@ -80,5 +78,7 @@ class Snake
 	 * @param direction
 	 * @return North = (0,-1), East (1,0), South (0,1), West (-1,0)
 	 */
-	constexpr auto changeToPlayFieldAwarePosition(Point& point) -> void;
+	auto changeToPlayFieldAwarePosition(Point& point) -> void;
+	/// Enhances the speed by 1/4
+	auto levelUp() -> void;
 };
