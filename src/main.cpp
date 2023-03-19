@@ -1,10 +1,10 @@
-#include "SnakeGameFrame.hpp"
-
 #include <QApplication>
 #include <QMainWindow>
 #include <QToolBar>
 #include <QStatusBar>
 #include <QBoxLayout>
+
+import SnakeGameFrame;
 
 auto main(int argc, char* argv[]) -> int
 {

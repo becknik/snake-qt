@@ -1,4 +1,4 @@
-#include "Snake.hpp"
+#include "Snake.cppm"
 
 #define BOOST_TEST_MODULE Snake Test
 #include <boost/test/unit_test.hpp>

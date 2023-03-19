@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.24)
+cmake_minimum_required(VERSION 3.26)
 
 
 set(YES_PLEASE_GIVE_ME_WARNINGS ON) # Enables advanced compiler warning output
@@ -52,6 +52,26 @@ if (ENABLE_IWYU)
 	#endif()
 endif ()
 
+## C++20 Modules configuration
+
+set(CMAKE_EXPERIMENTAL_CXX_MODULE_CMAKE_API "2182bf5c-ef0d-489a-91da-49dbc3090d2a")
+set(CMAKE_EXPERIMENTAL_CXX_MODULE_DYNDEP 1)
+#set(CMAKE_CXX_EXTENSIONS OFF) Clang
+if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+	include(gcc_modules.cmake)
+endif()
+
+# https://gitlab.kitware.com/cmake/cmake/-/blob/master/.gitlab/ci/cxx_modules_rules_gcc.cmake
+#set(CMake_TEST_CXXModules_UUID "a246741c-d067-4019-a8fb-3d16b0c9d1d3")
+
+string(CONCAT CMAKE_EXPERIMENTAL_CXX_SCANDEP_SOURCE # GCC
+	"<CMAKE_CXX_COMPILER> <DEFINES> <INCLUDES> <FLAGS> -E -x c++ <SOURCE>"
+	" -MT <DYNDEP_FILE> -MD -MF <DEP_FILE>"
+	" -fmodules-ts -fdep-file=<DYNDEP_FILE> -fdep-output=<OBJECT> -fdep-format=trtbd"
+	" -o <PREPROCESSED_SOURCE>")
+set(CMAKE_EXPERIMENTAL_CXX_MODULE_MAP_FORMAT "gcc")
+set(CMAKE_EXPERIMENTAL_CXX_MODULE_MAP_FLAG "-fmodules-ts -fmodule-mapper=<MODULE_MAP_FILE> -fdep-format=trtbd -x c++")
+
 ## Project configuration
 
 project(snake VERSION 0.1 LANGUAGES CXX)
@@ -70,8 +90,14 @@ qt_standard_project_setup()
 ## Target setup
 
 file(GLOB EXE_INCLUDE_FILES ${PROJECT_SOURCE_DIR}/src/*.?pp*) # include .cpp, .hpp, .mpp & .cppm files
-add_executable(snake ${EXE_INCLUDE_FILES})
-target_link_libraries(snake PRIVATE Qt6::Widgets fmt)
+add_library(snake.lib)
+target_sources(snake.lib PUBLIC
+	FILE_SET cxx_modules TYPE CXX_MODULES FILES
+	src/Snake.cppm src/SnakeGameFrame.cppm
+	)
+
+add_executable(snake src/main.cpp)
+target_link_libraries(snake PRIVATE Qt6::Widgets fmt) # PUBLIC snake.lib
 
 # Test setup
 

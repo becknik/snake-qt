@@ -4,6 +4,8 @@ A simple (less good looking) snake game written in C++20 & Qt6, tested under Lin
 
 The used modern C++ set of features isn't that large due to the project not really being that complicated...
 
+This branch holds a try to modularize the code. I should wait for GCC & Clang to release with p1689r5 support (=Clang 16, GCC ?) to make C++20 modules buildable with cmake & then try angain...
+
 ## Useful References
 
 Here are some references (besides basic doc) I used for this mini project:
